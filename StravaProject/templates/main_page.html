@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Dashboard (Dark Mode)</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #212529; /* Dark background */
+            color: #fff; /* Light text color */
+        }
+        select{
+            color: #fff; /* Light text color */
+            background-color: #343a40; /* Darker navbar */
+        }
+        option{
+            color: #fff; /* Light text color */
+            background-color: #343a40; /* Darker navbar */
+        }
+        .navbar {
+            background-color: #343a40; /* Darker navbar */
+        }
+        .card {
+            background-color: #343a40; /* Darker card background */
+            border-color: #495057; /* Darker border */
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark"> 
+        <a class="navbar-brand text-light" href="#">Ciao {{name}}</a> 
+        <a class="navbar-brand text-light" href="#">Dashboard</a> 
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    {% if strava_access %}
+                    <a class="nav-link text-success" href="{% url 'download_activity' %}">Scarica CSV</a>
+                    {% else %}
+                    <a class="nav-link text-danger" href="{% url 'download_activity' %}">Scarica CSV</a>
+                    {% endif %}
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-light" href="#">Impostazioni</a>
+                </li>                
+                <li class="nav-item">
+                    <a class="nav-link text-light" href="{% url 'UTMB_scrape' %}">previsioni UTMB index</a>
+                </li>
+                <li class="nav-item">
+                    {% if strava_access %}
+                    <a class="nav-link text-success" href="{% url 'login_strava' %}">Login con Strava </a>
+                    {% else %}
+                    <a class="nav-link text-danger" href="{% url 'login_strava' %}">Login con Strava </a>
+                    {% endif %}
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-light" href="{% url 'logout' %}">Logout</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container-fluid p-4">
+        <div class="row">
+            <div class="col-md-12 mt-4 p-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title text-light">Grafico Distanza/Dislivello - Data</h5>
+
+                        <!-- Dropdown for selecting the number of activities -->
+                        <div class="form-group">
+                            <label for="activityCount" class="text-light">Seleziona il numero di attività da visualizzare:</label>
+                            <select id="activityCount" class="form-control">
+                                <option value="{{ activities_count }}">Tutte le attività</option>
+                                <option value="100">Ultime 100 attività</option>
+                                <option value="75">Ultime 75 attività</option>
+                                <option value="50">Ultime 50 attività</option>
+                                <option value="40">Ultime 40 attività</option>
+                                <option value="25">Ultime 25 attività</option>
+                                <option value="15">Ultime 15 attività</option>
+                                <option value="7">Ultime 7 attività</option>
+
+                            </select>
+                        </div>
+
+                        <canvas id="myChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="row">
+            <div class="col-md-12 mt-4 p-6">
+                <div class="card">
+                    <div class="container-fluid p-4">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="groupingSelect" class="text-light">Seleziona raggruppamento:</label>
+                                <select id="groupingSelect" class="form-control">
+                                    <option value="day" selected>Giorno</option>
+                                    <option value="week">Settimana</option>
+                                    <option value="month">Mese</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="daysSelect" class="text-light">Seleziona raggruppamento:</label>
+                                <select id="daysSelect" class="form-control">
+                                    <option value="10" selected>10</option>
+                                    <option value="40">40</option>
+                                    <option value="75">75</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title text-light">Grafico Distanza/Dislivello</h5>
+                        <canvas id="myChart2"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+        <!-- Other charts as before -->
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Serialized data from Django
+            const serializedData = {{ charts_runs|safe }};
+            
+            // Extract data for the chart
+            const labels = serializedData.map(activity => 
+                new Date(activity.start_date).toLocaleDateString() // Format dates for x-axis
+            );
+            const distances = serializedData.map(activity => activity.distance);
+            const elevations = serializedData.map(activity => activity.elevation);
+            
+            // Create the mixed chart
+            const ctx = document.getElementById('myChart').getContext('2d');
+            const myChart = new Chart(ctx, {
+                type: 'bar', // Base chart type
+                data: {
+                    labels: labels, // X-axis labels (start dates)
+                    datasets: [
+                        {
+                            type: 'line', // Line chart for distance
+                            label: 'Distance (km)',
+                            data: distances,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderWidth: 2,
+                            yAxisID: 'y', // Primary y-axis
+                        },
+                        {
+                            type: 'bar', // Bar chart for elevation
+                            label: 'Elevation Gain (m)',
+                            data: elevations,
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1,
+                            yAxisID: 'y1', // Secondary y-axis
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Start Date'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Distance (km)'
+                            },
+                            beginAtZero: true,
+                            position: 'left'
+                        },
+                        y1: {
+                            title: {
+                                display: true,
+                                text: 'Elevation Gain (m)'
+                            },
+                            beginAtZero: true,
+                            position: 'right' // Secondary y-axis on the right
+                        }
+                    }
+                }
+            });
+
+            // Add event listener to the dropdown menu
+            document.getElementById('activityCount').addEventListener('change', function() {
+                const selectedCount = parseInt(this.value);
+                
+                // Filter the data based on the selected count
+                const filteredData = serializedData.slice(serializedData.length - selectedCount, serializedData.length);
+
+                // Update chart labels and data
+                myChart.data.labels = filteredData.map(activity => 
+                    new Date(activity.start_date).toLocaleDateString()
+                );
+                myChart.data.datasets[0].data = filteredData.map(activity => activity.distance);
+                myChart.data.datasets[1].data = filteredData.map(activity => activity.elevation);
+                
+                // Re-render the chart
+                myChart.update();
+            });
+        });
+    </script>
+   <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Dati serializzati da Django
+        const serializedData = {{ charts_runs|safe }};
+        
+        // Variabile globale per tenere traccia del grafico corrente
+        let myChart = null;
+
+        // Funzione per raggruppare le date in base alla selezione (giorno, settimana, mese)
+        function groupByDate(data, groupBy) {
+            const grouped = {};
+            data.forEach(activity => {
+                const date = new Date(activity.start_date);
+                let label;
+
+                if (groupBy === 'week') {
+                    // Ottieni la settimana dell'anno
+                    const startDate = new Date(date.getFullYear(), 0, 1);
+                    const diff = date - startDate;
+                    const oneWeek = 1000 * 60 * 60 * 24 * 7;
+                    const weekNumber = Math.ceil(diff / oneWeek);
+                    label = `Week ${weekNumber} ${date.getFullYear()}`;
+                } else if (groupBy === 'month') {
+                    // Ottieni mese e anno
+                    label = `${date.getMonth() + 1}/${date.getFullYear()}`;
+                } else {
+                    // Raggruppamento giornaliero
+                    label = date.toLocaleDateString();
+                }
+
+                if (!grouped[label]) {
+                    grouped[label] = { distance: 0, elevation: 0 };
+                }
+
+                grouped[label].distance += activity.distance;
+                grouped[label].elevation += activity.elevation;
+            });
+
+            return Object.keys(grouped).map(label => ({
+                label,
+                distance: grouped[label].distance,
+                elevation: grouped[label].elevation
+            }));
+        }
+
+        // Funzione per aggiornare il grafico
+        function updateChart(days, groupBy) {
+            // Se il grafico esiste già, distruggilo prima di crearne uno nuovo
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            // Ottieni la data dell'ultimo giorno presente nei dati
+            const lastDate = new Date(Math.max(...serializedData.map(activity => new Date(activity.start_date))));
+            const dateAgo = new Date(lastDate);
+            dateAgo.setDate(lastDate.getDate() - days);
+            
+            // Filtro dei dati in base ai giorni selezionati
+            const filteredData = serializedData.filter(activity => new Date(activity.start_date) >= dateAgo);
+
+            // Raggruppamento dei dati in base alla selezione (giorno, settimana, mese)
+            const groupedData = groupByDate(filteredData, groupBy);
+            const labels = groupedData.map(item => item.label);
+            const distances = groupedData.map(item => item.distance);
+            const elevations = groupedData.map(item => item.elevation);
+
+            // Crea il grafico combinato
+            const ctx = document.getElementById('myChart2').getContext('2d');
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: 'Distance (km)',
+                            data: distances,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderWidth: 2,
+                            yAxisID: 'y',
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Elevation Gain (m)',
+                            data: elevations,
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1,
+                            yAxisID: 'y1',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: groupBy === 'day' ? 'Giorno' : (groupBy === 'week' ? 'Settimana' : 'Mese')
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Distance (km)'
+                            },
+                            beginAtZero: true,
+                            position: 'left'
+                        },
+                        y1: {
+                            title: {
+                                display: true,
+                                text: 'Elevation Gain (m)'
+                            },
+                            beginAtZero: true,
+                            position: 'right'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Funzione per rilevare il cambiamento nel numero di giorni e nel raggruppamento
+        document.getElementById('daysSelect').addEventListener('change', function() {
+            const selectedDays = parseInt(this.value);
+            const selectedGrouping = document.getElementById('groupingSelect').value;
+            updateChart(selectedDays, selectedGrouping);
+        });
+
+        document.getElementById('groupingSelect').addEventListener('change', function() {
+            const selectedGrouping = this.value;
+            const selectedDays = parseInt(document.getElementById('daysSelect').value);
+            updateChart(selectedDays, selectedGrouping);
+        });
+
+        // Carica il grafico iniziale
+        updateChart(100, 'day');
+    });
+</script>
+
+    <!-- Additional scripts for Bootstrap -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+</body>
+</html>
