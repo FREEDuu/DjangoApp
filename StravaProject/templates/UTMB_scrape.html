@@ -52,24 +52,18 @@
 
     <div class="container">
         <h1 class="text-center mt-4 mb-4 text-light">Inserisci il tuo indice UTMB</h1>
-
         <div class="row mb-4">
-            <div class="input-group">
-                <div class="input-group-prepend mb-3">
-                  <span class="input-group-text" id="inputGroup-sizing-default">UTMB index</span>
+            <div>
+                <input type="number" class="form-control" aria-label="Sizing example input" aria-describedby="inputGroup-sizing-default" placeholder="UTMB index" id="input-UTMB">
+                <div class="col-md-6 mt-4">
+                    <select class="custom-select" id="race_select">
+                        <option selected>Search a UTMB race</option>
+                        {% for race in races_list %}
+                            <option value="{{race}}">{{race}}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-                <input type="number" class="form-control" aria-label="Sizing example input" aria-describedby="inputGroup-sizing-default">
-                <div class="col-md-6">
-                    <select class="custom-select">
-                        <option selected>Open this select menu</option>
-                        <option value="1">One</option>
-                        <option value="2">Two</option>
-                        <option value="3">Three</option>
-                      </select>
-                </div>
-            
             </div>
-            
         </div>
 
         <div class="row">
@@ -80,32 +74,103 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6ZYgfuA2A0+LcUGcQJG6AbQ4TeHxzOox0iLOhJki2dfCZEo2gWMKkViu14jxpO" crossorigin="anonymous"></script>
 
     <script>
-        // Sample Chart.js code (replace with your actual data)
-        const ctx = document.getElementById('myChart').getContext('2d');
-        const myChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['Red', 'Blue', 'Yellow', 'Green', 'Purple', 'Orange'],
-                datasets: [{
-                    label: '# of Votes',
-                    data: [12, 19, 3, 5, 2, 3],
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                scales: {
-                    y: {
-                        beginAtZero: true
+
+            document.getElementById('race_select').addEventListener('change', function() {
+                
+                const selectedRace = document.getElementById('race_select').value
+                const span = document.getElementById('input-UTMB').value;
+                const xhr = new XMLHttpRequest();
+                xhr.open("GET", 'http://127.0.0.1:8000/data_race/' + selectedRace);
+                xhr.send();
+                xhr.responseType = "json";
+                xhr.onload = () => {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    const datares = xhr.response;
+                    console.log(datares)
+                    var raceData = datares['data_race']; // Replace with the actual data
+var labels = []; // Time in seconds for x-axis
+var data = []; // The index values for y-axis
+
+        for (const name in raceData) {
+    if (raceData.hasOwnProperty(name)) {
+        const race = raceData[name];  // Get the array [time, index]
+        const timeInSeconds = timeToSeconds(race[0]);  // Convert time to seconds
+        const index = parseInt(race[1], 10);  // The index value (integer)
+        
+        // Push the converted time and index to the arrays
+        labels.push(timeInSeconds);
+        data.push(index);
+    }
+}
+function createChart() {
+            // Check if the chart instance exists and destroy it if it does
+            if (window.myChart) {
+                window.myChart.destroy(); // Destroy the existing chart
+            }
+
+            // Creating the chart
+            window.myChart = new Chart(ctx, {
+                type: 'scatter', // Use scatter plot to show just points
+                data: {
+                    labels: labels, // Time in seconds (x-axis)
+                    datasets: [{
+                        label: 'Race Data',
+                        data: labels.map((label, index) => ({ x: label, y: data[index] })), // Mapping to point objects
+                        backgroundColor: 'rgba(75, 192, 192, 1)', // Point color
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        radius: 5, // Size of the points
+                        fill: false,
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'linear', // Set x-axis as linear scale
+                            position: 'bottom',
+                            ticks: {
+                                stepSize: 600, // Adjust the zoom level on x-axis (example: each tick = 10 minutes)
+                                max: Math.max(...labels) + 600, // Ensure the chart is zoomed into your data range
+                                min: Math.min(...labels) - 600, // Focus on the first 10 minutes
+                                callback: function(value) {
+                                    // Format x-axis ticks as "HH:MM:SS"
+                                    var hours = Math.floor(value / 3600);
+                                    var minutes = Math.floor((value % 3600) / 60);
+                                    var seconds = value % 60;
+                                    return hours + ':' + minutes + ':' + seconds;
+                                }
+                            }
+                        },
+                        y: {
+                            beginAtZero: true
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
+            createChart()
+                } else {
+                    console.log(`Error: ${xhr.status}`);
+                }
+                };
+
+
+            });
+
+        // Function to convert time "HH:MM:SS" to total seconds
+        function timeToSeconds(timeStr) {
+            const parts = timeStr.split(':');
+            const hours = parseInt(parts[0], 10);
+            const minutes = parseInt(parts[1], 10);
+            const seconds = parseInt(parts[2], 10);
+            return hours * 3600 + minutes * 60 + seconds;
+        }
+
+        // Prepare the chart data
+        
     </script>
+
 
 </body>
 </html>

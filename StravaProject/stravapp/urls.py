@@ -12,6 +12,7 @@ urlpatterns = [
     path('strava_redirect', views.strava_redirect, name='strava_redirect'),
     path('download_activity/', views.download_activity, name='download_activity'),
     path('csv_runs/', views.csv_runs, name='csv_runs'),
-    path('UTMB_scrape/', views.UTMB_scrape, name='UTMB_scrape')
+    path('UTMB_scrape/', views.UTMB_scrape, name='UTMB_scrape'),
+    path('data_race/<str:race_id>', views.data_race, name='data_race')
     
 ]

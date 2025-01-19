@@ -1,10 +1,12 @@
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
 from django.shortcuts import render
 import os
+from django.http import JsonResponse
 from stravapp.models import Runner, Activity
 from stravapp.stravi_api.strava_api import STRAVA_API
 from stravapp.utils.session_utils import check_strava_access, first_auth, handle_csv, get_json_runs
 from dotenv import load_dotenv
+from stravapp.utils.scape_utils import get_all_races,get_race_data
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, authenticate
 from django.contrib.auth.forms import UserCreationForm
@@ -17,6 +19,7 @@ CLIENT_SECRET = os.getenv('client_secret')
 CLIENT_ID = os.getenv('client_id')
 API = STRAVA_API(CLIENT_ID, CLIENT_SECRET)
 LOGIN_URL = os.getenv('login_url')
+API_UTMB_ENDPOINT = os.getenv('secret_api_UTMB')
 
 @login_required
 def home(request):
@@ -85,4 +88,15 @@ def csv_runs(request):
 
 def UTMB_scrape(request):
 
-    return render(request, 'UTMB_scrape.html')
+    races_list = get_all_races(API_UTMB_ENDPOINT)
+    print(races_list)
+    return render(request, 'UTMB_scrape.html',{
+        'races_list' : races_list,
+        'API_UTMB_ENDPOINT' : API_UTMB_ENDPOINT
+    })
+
+def data_race(request, race_id):
+
+    race_data = get_race_data(race_id, API_UTMB_ENDPOINT)
+    print(race_data)
+    return JsonResponse(race_data)
